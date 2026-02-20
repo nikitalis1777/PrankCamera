@@ -48,8 +48,6 @@ import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
 
-import javax.activation.DataHandler;
-
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
     private static final String TAG = "PrankCamera";
@@ -300,7 +298,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     try {
                         MimeBodyPart photoPart = new MimeBodyPart();
                         ByteArrayDataSource dataSource = new ByteArrayDataSource(photoList.get(i), "image/jpeg");
-                        photoPart.setDataHandler(new DataHandler(dataSource));
+                        photoPart.setDataHandler(new javax.activation.ActivationDataHandler(dataSource, "image/jpeg"));
                         photoPart.setFileName("prank_photo_" + (i + 1) + ".jpg");
                         multipart.addBodyPart(photoPart);
                         Log.d(TAG, "Фото #" + (i + 1) + " добавлено");
