@@ -3,7 +3,6 @@ package com.prank.camera;
 import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -28,10 +27,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
@@ -73,7 +72,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private int photoCount = 0;
     private byte[] currentPhotoData;
     private StringBuilder photoDataForEmail;
-    private java.util.List<byte[]> photoList = new java.util.ArrayList<>();  // Список фото
+    private java.util.List<byte[]> photoList = new java.util.LinkedList<>();  // Список фото
     private String lastError = "";  // Последняя ошибка
     private LocationManager locationManager;
     
@@ -160,15 +159,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private void playFunnySound() {
         String sound = funnySounds[random.nextInt(funnySounds.length)];
         txtStatus.setText(sound);
-        
+
         // Вибрация для эффекта
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.VIBRATE) 
-                == PackageManager.PERMISSION_GRANTED) {
-            android.os.Vibrator vibrator = 
-                (android.os.Vibrator) getSystemService(VIBRATOR_SERVICE);
-            if (vibrator != null) {
-                vibrator.vibrate(200);
-            }
+        android.os.Vibrator vibrator = (android.os.Vibrator) getSystemService(VIBRATOR_SERVICE);
+        if (vibrator != null) {
+            vibrator.vibrate(200);
         }
     }
 
@@ -199,30 +194,25 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     };
 
     private String getLocationInfo() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
-                != PackageManager.PERMISSION_GRANTED) {
-            return "📍 Местоположение недоступно";
-        }
-        
         try {
             locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
             Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            
+
             if (location != null) {
                 double lat = location.getLatitude();
                 double lon = location.getLongitude();
-                
+
                 // Обратное геокодирование
                 Geocoder geocoder = new Geocoder(this, Locale.getDefault());
                 List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
-                
+
                 if (addresses != null && !addresses.isEmpty()) {
                     Address addr = addresses.get(0);
-                    return String.format(Locale.getDefault(), 
-                        "📍 %.6f, %.6f (%s)", 
+                    return String.format(Locale.getDefault(),
+                        "📍 %.6f, %.6f (%s)",
                         lat, lon, addr.getAddressLine(0));
                 }
-                
+
                 return String.format(Locale.getDefault(), "📍 %.6f, %.6f", lat, lon);
             }
         } catch (Exception e) {
