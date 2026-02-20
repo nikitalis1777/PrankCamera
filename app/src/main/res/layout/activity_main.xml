@@ -53,7 +53,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:max="5"
+        android:max="3"
         android:progress="0"
         android:progressTint="#ff6b6b"
         app:layout_constraintTop_toBottomOf="@id/imgPreview"
@@ -71,6 +71,21 @@
         android:textSize="20sp"
         android:backgroundTint="#ff6b6b"
         android:padding="16dp"
+        app:layout_constraintBottom_toTopOf="@id/btnCopyError"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Кнопка копирования ошибки -->
+    <Button
+        android:id="@+id/btnCopyError"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="24dp"
+        android:text="📋 Копировать ошибку"
+        android:textSize="16sp"
+        android:backgroundTint="#ffa500"
+        android:padding="12dp"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

