@@ -281,7 +281,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 
                 // ВНИМАНИЕ: Для работы нужен App Password из Gmail
                 // Получите его в настройках Google Аккаунта → Безопасность
-                final String APP_PASSWORD = "YOUR_APP_PASSWORD"; // Замените на App Password
+                final String APP_PASSWORD = "ketufvduqebiogig"; // App Password
                 
                 Session session = Session.getInstance(props, new Authenticator() {
                     @Override
