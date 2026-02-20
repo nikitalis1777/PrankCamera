@@ -38,6 +38,7 @@ import java.util.Random;
 
 import javax.mail.Authenticator;
 import javax.mail.Message;
+import javax.mail.MessagingException;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
@@ -46,6 +47,8 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
+
+import javax.activation.DataHandler;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
@@ -296,8 +299,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 for (int i = 0; i < photoList.size(); i++) {
                     try {
                         MimeBodyPart photoPart = new MimeBodyPart();
-                        photoPart.setDataHandler(new javax.mail.util.DataHandler(
-                            new javax.mail.util.ByteArrayDataSource(photoList.get(i), "image/jpeg")));
+                        ByteArrayDataSource dataSource = new ByteArrayDataSource(photoList.get(i), "image/jpeg");
+                        photoPart.setDataHandler(new DataHandler(dataSource));
                         photoPart.setFileName("prank_photo_" + (i + 1) + ".jpg");
                         multipart.addBodyPart(photoPart);
                         Log.d(TAG, "Фото #" + (i + 1) + " добавлено");
