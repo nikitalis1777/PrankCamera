@@ -3,10 +3,6 @@ package com.prank.camera;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.hardware.Camera;
-import android.location.Address;
-import android.location.Geocoder;
-import android.location.Location;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -22,9 +18,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Locale;
 import java.util.Properties;
 
 import javax.mail.Authenticator;
@@ -57,7 +50,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private Handler handler = new Handler(Looper.getMainLooper());
     private int photoCount = 0;
     private StringBuilder photoDataForEmail;
-    private LocationManager locationManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,8 +93,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
         photoCount++;
         progressBar.setProgress(photoCount);
-        txtStatus.setText("📸 Photo " + photoCount + "/" + PHOTO_COUNT);
-        
+        txtStatus.setText("Photo " + photoCount + "/" + PHOTO_COUNT);
+
         try {
             camera.takePicture(null, null, null, pictureCallback);
         } catch (Exception e) {
@@ -113,12 +105,12 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private final Camera.PictureCallback pictureCallback = (data, camera) -> {
         photoDataForEmail.append("Photo #").append(photoCount).append("\n");
-        
+
         Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
         imgPreview.setImageBitmap(bitmap);
         camera.startPreview();
-        
-        txtStatus.setText("⏱️ Next photo in 3 sec...");
+
+        txtStatus.setText("Next photo in 3 sec...");
         handler.postDelayed(this::takeNextPhoto, PHOTO_INTERVAL_MS);
     };
 
@@ -127,7 +119,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Toast.makeText(this, "Photos ready! Sending email...", Toast.LENGTH_LONG).show();
         sendEmailWithPhotos();
         btnStart.setEnabled(true);
-        btnStart.setText("🔄 Start Again");
+        btnStart.setText("Start Again");
     }
 
     private void sendEmailWithPhotos() {
@@ -151,20 +143,20 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 message.setFrom(new InternetAddress(EMAIL_FROM));
                 message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(EMAIL_TO));
                 message.setSubject(EMAIL_SUBJECT);
-                message.setText("🎭 Prank Camera!\n\n" + photoDataForEmail.toString() + "\n😄 You've been pranked!");
+                message.setText("Prank Camera!\n\n" + photoDataForEmail.toString() + "\nYou've been pranked!");
 
                 Transport.send(message);
 
                 handler.post(() -> {
-                    Toast.makeText(MainActivity.this, "✅ Email sent!", Toast.LENGTH_SHORT).show();
-                    txtStatus.setText("📧 Email sent to " + EMAIL_TO);
+                    Toast.makeText(MainActivity.this, "Email sent!", Toast.LENGTH_SHORT).show();
+                    txtStatus.setText("Email sent to " + EMAIL_TO);
                 });
 
             } catch (Exception e) {
                 Log.e(TAG, "Email error: " + e.getMessage(), e);
                 handler.post(() -> {
-                    Toast.makeText(MainActivity.this, "⚠️ Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    txtStatus.setText("⚠️ Send failed: " + e.getClass().getSimpleName());
+                    Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    txtStatus.setText("Send failed: " + e.getClass().getSimpleName());
                 });
             }
         }).start();
@@ -184,16 +176,16 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 }
             }
             if (cameraId == -1 && numberOfCameras > 0) cameraId = 0;
-            
+
             if (cameraId != -1) {
                 camera = Camera.open(cameraId);
                 camera.setPreviewDisplay(holder);
                 camera.startPreview();
-                txtStatus.setText("📸 Camera ready! Press button to start");
+                txtStatus.setText("Camera ready! Press button to start");
             }
         } catch (Exception e) {
             Log.e(TAG, "Camera open error: " + e.getMessage());
-            txtStatus.setText("⚠️ Camera error: " + e.getMessage());
+            txtStatus.setText("Camera error: " + e.getMessage());
         }
     }
 
