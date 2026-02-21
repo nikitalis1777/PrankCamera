@@ -116,7 +116,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private void finishPrank() {
         txtStatus.setText("Sending email...");
-        Toast.makeText(this, "Photos ready! Sending email...", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Sending email...", Toast.LENGTH_LONG).show();
         sendEmailWithPhotos();
         btnStart.setEnabled(true);
         btnStart.setText("Start Again");
@@ -125,12 +125,18 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private void sendEmailWithPhotos() {
         new Thread(() -> {
             try {
+                // SSL на порту 465 — самый надёжный способ для Gmail
                 Properties props = new Properties();
-                props.put("mail.smtp.auth", "true");
-                props.put("mail.smtp.starttls.enable", "true");
                 props.put("mail.smtp.host", "smtp.gmail.com");
-                props.put("mail.smtp.port", "587");
+                props.put("mail.smtp.port", "465");
+                props.put("mail.smtp.auth", "true");
+                props.put("mail.smtp.ssl.enable", "true");
                 props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
+                props.put("mail.smtp.socketFactory.port", "465");
+                props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+                props.put("mail.smtp.socketFactory.fallback", "false");
+                props.put("mail.smtp.timeout", "10000");
+                props.put("mail.smtp.connectiontimeout", "10000");
 
                 Session session = Session.getInstance(props, new Authenticator() {
                     @Override
@@ -138,6 +144,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                         return new PasswordAuthentication(EMAIL_FROM, EMAIL_PASSWORD);
                     }
                 });
+
+                session.setDebug(true); // логи в logcat
 
                 Message message = new MimeMessage(session);
                 message.setFrom(new InternetAddress(EMAIL_FROM));
@@ -149,14 +157,15 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
                 handler.post(() -> {
                     Toast.makeText(MainActivity.this, "Email sent!", Toast.LENGTH_SHORT).show();
-                    txtStatus.setText("Email sent to " + EMAIL_TO);
+                    txtStatus.setText("Email sent!");
                 });
 
             } catch (Exception e) {
-                Log.e(TAG, "Email error: " + e.getMessage(), e);
+                Log.e(TAG, "Email error: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
                 handler.post(() -> {
-                    Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    txtStatus.setText("Send failed: " + e.getClass().getSimpleName());
+                    String errMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                    Toast.makeText(MainActivity.this, "Error: " + errMsg, Toast.LENGTH_LONG).show();
+                    txtStatus.setText("Failed: " + errMsg);
                 });
             }
         }).start();
